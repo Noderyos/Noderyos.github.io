@@ -4,5 +4,13 @@ icon: fas fa-info-circle
 order: 4
 ---
 
-> Add Markdown syntax content to file `_tabs/about.md`{: .filepath } and it will show up on this page.
-{: .prompt-tip }
+# 👋 Salut!
+
+Je suis Noderyos, un étudiant en L2 Informatique passionné par le développement, la cybersécurité ... et la radio.
+
+Ce site portera donc sur
+
+* Le développement informatique
+* La cybersécurité
+* L'électronique
+* La radio
