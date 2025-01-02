@@ -14,3 +14,6 @@ Ce site portera donc sur
 * La cybersécurité
 * L'électronique
 * La radio
+
+> Mon seul compte discord est `noderyos`, attention aux faux comptes.
+{: .prompt-tip }
