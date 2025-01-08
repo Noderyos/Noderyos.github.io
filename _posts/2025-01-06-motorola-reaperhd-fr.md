@@ -13,15 +13,15 @@ author: noderyos
 > Cet article est à but purement éducatif, exploiter ces données est illégal, malgrès l'absence d'authentification est de chiffrement
 {: .prompt-tip }
 
-Suite à cette [cette video](https://www.youtube.com/watch?v=0dUnY1641WM) de Matt Brown dans laquelle il explore les cameras ReadperHD exposées sur internet et relève les port 500x, j'ai décidé dánalyser plus en profondeur le protocole utilisés sur ces ports.
+Suite à cette [cette video](https://www.youtube.com/watch?v=0dUnY1641WM) de Matt Brown dans laquelle il explore les cameras ReadperHD exposées sur internet et relève les port 500x, j'ai décidé d'analyser plus en profondeur le protocole utilisés sur ces ports.
 
 ## 1. Capturer quelques paquets
 
-En laissant tourner `nc xxx.xxx.xxx.xxx 5001 | tee capture` quelques minutes, jái pu capturer 23 packets.
+En laissant tourner `nc xxx.xxx.xxx.xxx 5001 | tee capture` quelques minutes, j'ai pu capturer 23 packets.
 
 ## 2. Analyser la structure
 
-Pour cette partie, je vais utiliser [Binwalk](https://github.com/ReFirmLabs/binwalk) pour extraire les images comme Matt Brown l'a fait et obtenir les offsets et tailles des images dans le fichier `capture` ainsi que [ImHex](https://github.com/WerWolv/ImHex) qui est un editeur hexadecimal qui me permettra de creer des pattern/bookmarks pour facciliter la compréhension de la structure.
+Pour cette partie, je vais utiliser [Binwalk](https://github.com/ReFirmLabs/binwalk) pour extraire les images comme Matt Brown l'a fait et obtenir les offsets et tailles des images dans le fichier `capture` ainsi que [ImHex](https://github.com/WerWolv/ImHex) qui est un editeur hexadecimal qui me permettra de creer des pattern/bookmarks pour faciliter la compréhension de la structure.
 
 Commencons par binwalk pour savoir où commencer à chercher:
 
@@ -46,7 +46,7 @@ On peut confirmer en allant à la premiere addresse dans ImHex
 ```
 
 Où je retrouve bien `JFIF`, symbole reconnaissable du debut d'une image JPEG.
-Juste avant le debut de l'image (`FF D8`), je peut facilement identifier un entier sur 32 bit `5C B7 00 00` qui correspond exactement à la taille du fichier JPEG selon Binwalk. Je peux d'hors et deja commencer a ecrire un pattern.
+Juste avant le debut de l'image (`FF D8`), je peux facilement identifier un entier sur 32 bit `5C B7 00 00` qui correspond exactement à la taille du fichier JPEG selon Binwalk. Je peux d'ores et déjà commencer à ecrire un pattern.
 
 ```
 struct Packet {
@@ -57,7 +57,7 @@ struct Packet {
 Packet packets[1] @ 0x9F0;
 ```
 
-Juste après l'image (`FF D9`), il y a une suite tres longue de valeurs, toutes tres proche, du moins au debut.
+Juste après l'image (`FF D9`), il y a une suite très longue de valeurs, toutes très proche, du moins au debut.
 
 ```
 0000C140  03 23 34 84 00 29 09 E6  94 7C C7 9A 65 58 FF D9  .#4..)...|..eX..
@@ -71,7 +71,7 @@ Juste après l'image (`FF D9`), il y a une suite tres longue de valeurs, toutes 
 ```
 
 Cette suite de valeur se termine à l'addresse `0x1013F`, cette "liste" fait donc 16356 octet.
-Je cherche désormais un endroit ou cette valeur est ecrite, et juste au dessus on retrouve 3 valeurs sur 32 bits, 16364 (`3C 3F 00 00`), 174 (`AE 00 00 00`) et 94 (`5E 00 00 00`), la première correspond à la taille de la "liste" + la taille des 2 prochains entiers, ces 2 entiers qui multipliées donnent exactement 16356. J'ai donc directement pensé à une image en noir en blanc (`255` ou `FF` pour le blanc, `0` ou `00` pour le noir).
+Je cherche désormais un endroit où cette valeur est écrite, et juste au dessus on retrouve 3 valeurs sur 32 bits, 16364 (`3C 3F 00 00`), 174 (`AE 00 00 00`) et 94 (`5E 00 00 00`), la première correspond à la taille de la "liste" + la taille des 2 prochains entiers, ces 2 entiers qui multipliés donnent exactement 16356. J'ai donc directement pensé à une image en noir en blanc (`255` ou `FF` pour le blanc, `0` ou `00` pour le noir).
 
 Pour confirmer ca, j'ai fais un petit script python pour enregistrer l'image.
 
@@ -91,7 +91,7 @@ Ce qui nous donne ... Une magnifique image de la plaque d'immatriculation isolé
 
 ![](/assets/articles/motorola-reaperhd/plate.png)
 
-Je peux donc preciser mon pattern.
+Je peux donc préciser mon pattern.
 
 ```
 struct Packet {
@@ -104,7 +104,7 @@ struct Packet {
 };
 ```
 
-A la fin de cette image, on retrouve ca 
+A la fin de cette image, on retrouve ca:
 
 ```
 00010140  00 00 00 00 00 00 00 00  00 00 00 00 8E 00 00 00  ................
@@ -133,9 +133,9 @@ A la fin de cette image, on retrouve ca
 ```
 
 Dans lequel on retrouve plusieurs informations, dont la marque, le modèle et la couleur de la voiture.
-Je ne suis pas sur exactement comment il obtient ces informations, je doute qu'il analyse l'image, maus je peux me tromper.
+Je ne suis pas sur exactement comment il obtient ces informations, je doute qu'il analyse l'image, mais je peux me tromper.
 
-Le pattern ressemble desormais a ca 
+Le pattern ressemble desormais à ca:
 
 ```
 struct Packet {
@@ -175,10 +175,10 @@ Hex View  00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F
 ```
 
 On retrouve `08 04 00 00` répété 3 fois (dans le 2ème packet il n'est présent qu'une seule fois), probablement un `heartbeat` (un packet qui est là pour maintenir la connection ouverte), suivit de `bob` (`BB 0B`) :). 
-S'enchaine une suite de valeurs dont je ne connais pas le sens, puis la plaque d'immatriculation, dans le packet suivant elle fait 1 caractère de plus, mais le nombre de 0 est réduit de 1, pour faciliter l'analyse je suis partit du principe que la chaine de caractère prend toute la place jusqu'au prochain élément.
+S'enchaine une suite de valeurs dont je ne connais pas le sens, puis la plaque d'immatriculation, dans le packet suivant elle fait 1 caractère de plus, mais le nombre de 0 est réduit de 1, pour faciliter l'analyse je suis parti du principe que la chaine de caractère prend toute la place jusqu'au prochain élément.
 Prochain élément qui est un UUID, similaire entre les packets mais pas identique.
 On retrouve ensuite quelques valeurs puis une valeur qui vaut toujours `00:00:00:00` dans mes packets ... aucune idée de ce dont il s'aggit.
-De `0x190` à `0x9F0` on retrouve tout un tas de valeur sans sens evident, puis notre image, etc ...
+De `0x190` à `0x9F0` on retrouve tout un tas de valeur sans sens évident, puis notre image, etc ...
 
 Mon pattern final ressemble à ça:
 
